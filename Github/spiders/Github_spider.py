@@ -46,8 +46,8 @@ class GithubSpider(scrapy.Spider):
         self.start_urls[0] = "https://github.com/" + self.user
         self.start_urls[1] = "https://github.com/" + self.user + "?tab=repositories"
         self.start_urls[2] = "https://github.com/" + self.user + "?tab=stars"
-        self.start_urls[2] = "https://github.com/" + self.user + "?tab=followers"
-        self.start_urls[2] = "https://github.com/" + self.user + "?tab=following"
+        self.start_urls[3] = "https://github.com/" + self.user + "?tab=followers"
+        self.start_urls[4] = "https://github.com/" + self.user + "?tab=following"
         return [Request("https://github.com/login",
                         meta={'cookiejar': 1}, callback=self.post_login)]
 
@@ -78,40 +78,53 @@ class GithubSpider(scrapy.Spider):
 
     # 对overview的内容进行抓取
     def scrapy_overview(self, response):
-        repositories = response.xpath("//a[@href='/" + self.user + "?tab=repositories']/span/text()").extract()[0].replace("\n", "").replace(" ", "")
-        stars = response.xpath("//a[@href='/" + self.user + "?tab=stars']/span/text()").extract()[0].replace("\n", "").replace(" ", "")
-        followers = response.xpath("//a[@href='/" + self.user + "?tab=followers']/span/text()").extract()[0].replace("\n", "").replace(" ", "")
-        following = response.xpath("//a[@href='/" + self.user + "?tab=following']/span/text()").extract()[0].replace("\n", "").replace(" ", "")
+        a_text = self.replace_space(response.xpath("//span[@class='Counter']/text()").extract())
+        repositories, stars, followers, following = a_text[0], a_text[1], a_text[2], a_text[3]
         print "repositories:" + repositories + "  stars:" + stars + "  followers:" + followers + "  following:" + following
-        return [Request(self.start_urls[1],
-                        meta={'cookiejar': response.meta['cookiejar']},
-                        callback=self.scrapy_repositories)]
+        return [Request(self.start_urls[1], meta={'cookiejar': response.meta['cookiejar']}, callback=self.scrapy_repositories)]
 
     # 对repositories的内容进行抓取
     def scrapy_repositories(self, response):
-        repositories = self.replace_space(response.xpath("//li[@itemprop='owns']/div/h3/a/text()").extract())
-        descriptions = self.replace_space(response.xpath("//li[@itemprop='owns']/div/p/text()").extract())
-        programmingLanguage = self.replace_space(response.xpath("//li[@itemprop='owns']/div/span[@itemprop='programmingLanguage']/text()").extract())
-        datetime = self.replace_space(response.xpath("//li[@itemprop='owns']/div/relative-time/text()").extract())
+        repositories = self.replace_space(response.xpath("//a[@itemprop='name codeRepository']/text()").extract())
+        description = self.replace_space(response.xpath("//p[@itemprop='description']/text()").extract())
+        programmingLanguage = self.replace_space(response.xpath("//span[@itemprop='programmingLanguage']/text()").extract())
+        datetime = self.replace_space(response.xpath("//relative-time/@datetime").extract())
         for i in range(len(repositories)):
-            print "\nrepositories:" + repositories[i] + "\ndescriptions:" + descriptions[i] + "\nprogrammingLanguage:" + programmingLanguage[i] + "\ndatetime:" + datetime[i]
-        return [Request(self.start_urls[2],
-                        meta={'cookiejar': response.meta['cookiejar']},
-                        callback=self.scrapy_stars)]
+            print "\nrepositories:" + repositories[i] + "\ndescriptions:" + description[i] + "\nprogrammingLanguage:" + \
+                  programmingLanguage[i] + "\ndatetime:" + datetime[i]
+        return [Request(self.start_urls[2], meta={'cookiejar': response.meta['cookiejar']}, callback=self.scrapy_stars)]
 
     # 对stars的内容进行抓取
     def scrapy_stars(self, response):
-        description = self.replace_space(response.xpath("//p[@itemprop='description']/text()").extact())
-        programmingLanguage = self.replace_space(response.xpath("//span[@itemprop='programmingLanguage']/text()").extact())
-        return [Request(self.start_urls[3],
-                        meta={'cookiejar': response.meta['cookiejar']},
-                        callback=self.scrapy_followers)]
+        repositories = self.remove_null(
+            self.replace_space(response.xpath("//div[@class='d-inline-block mb-1']/h3/a/text()").extract()))
+        actor = self.replace_space(response.xpath("//span[@class='text-normal']/text()").extract())
+        description = self.replace_space(response.xpath("//p[@itemprop='description']/text()").extract())
+        programmingLanguage = self.replace_space(
+            response.xpath("//span[@itemprop='programmingLanguage']/text()").extract())
+        stars_forks = self.remove_null(
+            self.replace_space(response.xpath("//a[@class='muted-link mr-3']/text()").extract()))
+        datetime = self.replace_space(response.xpath("//relative-time/@datetime").extract())
+
+        # 将stars_forks奇数赋值给stars,偶数赋值给forks
+        count = len(stars_forks) / 2
+        stars = [""] * count
+        forks = [""] * count
+        i, j, k = 0, 0, 1
+        while i < count:
+            stars[i] = stars_forks[j]
+            forks[i] = stars_forks[k]
+            i, j, k = i + 1, j + 2, k + 2
+
+        for i in range(len(repositories)):
+            print "\nrepositories:" + repositories[i] + "\nactor:" + actor[i] + "\ndescription:" + description[
+                i] + "\nprogrammingLanguage:" \
+                  + programmingLanguage[i], "\nstars:" + stars[i] + "\nforks:" + forks[i] + "\ndatetime:" + datetime[i]
+        return [Request(self.start_urls[3], meta={'cookiejar': response.meta['cookiejar']}, callback=self.scrapy_followers)]
 
     # 对followers的内容进行抓取
     def scrapy_followers(self, response):
-        return [Request(self.start_urls[4],
-                        meta={'cookiejar': response.meta['cookiejar']},
-                        callback=self.scrapy_following)]
+        return [Request(self.start_urls[4], meta={'cookiejar': response.meta['cookiejar']}, callback=self.scrapy_following)]
 
     # 对following的内容进行抓取
     def scrapy_following(self, response):
@@ -124,13 +137,17 @@ class GithubSpider(scrapy.Spider):
             list[i] = list[i].replace("\n", "").replace(" ", "")
         return list
 
+    # 去掉list中所有空元素
+    @staticmethod
+    def remove_null(list):
+        while "" in list:
+            list.remove("")
+        return list
+
     # def after_login(self, response):
     #     for url in self.start_urls:
     #         yield Request(url, meta={'cookiejar': response.meta['cookiejar']})
     #
-    # def parse(self, response):
-    #     repositories = response.xpath("//a[@href='/panjunbing?tab=repositories']/span/text()").extract()[0]
-    #     stars = response.xpath("//a[@href='/panjunbing?tab=stars']/span/text()").extract()[0]
-    #     followers = response.xpath("//a[@href='/panjunbing?tab=followers']/span/text()").extract()[0]
-    #     following = response.xpath("//a[@href='/panjunbing?tab=following']/span/text()").extract()[0]
-    #     pass
+
+    def parse(self, response):
+        pass
