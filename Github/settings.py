@@ -19,12 +19,12 @@ COOKIES_ENABLES = True
 
 
 #Mysql数据库的配置信息
-MYSQL_HOST = '127.0.0.1'
-MYSQL_NAME = 'owmax'
-MYSQL_USER = 'root'
-MYSQL_PASSWORD = '123456'
-
-MYSQL_PORT = 3306               #数据库端口，在dbhelper中使用
+# MYSQL_HOST = '127.0.0.1'
+# MYSQL_NAME = 'owmax'
+# MYSQL_USER = 'root'
+# MYSQL_PASSWORD = '123456'
+#
+# MYSQL_PORT = 3306               #数据库端口，在dbhelper中使用
 
 
 ITEM_PIPELINES = {
