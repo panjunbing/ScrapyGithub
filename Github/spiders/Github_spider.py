@@ -96,14 +96,11 @@ class GithubSpider(scrapy.Spider):
 
     # 对stars的内容进行抓取
     def scrapy_stars(self, response):
-        repositories = self.remove_null(
-            self.replace_space(response.xpath("//div[@class='d-inline-block mb-1']/h3/a/text()").extract()))
+        repositories = self.remove_null(response.xpath("//div[@class='d-inline-block mb-1']/h3/a/text()").extract())
         actor = self.replace_space(response.xpath("//span[@class='text-normal']/text()").extract())
         description = self.replace_space(response.xpath("//p[@itemprop='description']/text()").extract())
-        programmingLanguage = self.replace_space(
-            response.xpath("//span[@itemprop='programmingLanguage']/text()").extract())
-        stars_forks = self.remove_null(
-            self.replace_space(response.xpath("//a[@class='muted-link mr-3']/text()").extract()))
+        programmingLanguage = self.replace_space(response.xpath("//span[@itemprop='programmingLanguage']/text()").extract())
+        stars_forks = self.remove_null(response.xpath("//a[@class='muted-link mr-3']/text()").extract())
         datetime = self.replace_space(response.xpath("//relative-time/@datetime").extract())
 
         # 将stars_forks奇数赋值给stars,偶数赋值给forks
@@ -124,25 +121,61 @@ class GithubSpider(scrapy.Spider):
 
     # 对followers的内容进行抓取
     def scrapy_followers(self, response):
+        divs = response.xpath("//div[@class='d-table col-12 width-full py-4 border-bottom border-gray-light']")
+        # 多维数组的创建，避免了浅拷贝
+        followers = [([None]*5) for i in range(len(divs))]
+        for i in range(len(followers)):
+            followers[i][0] = self.return_1(divs[i].xpath(".//span[@class='f4 link-gray-dark']/text()").extract())
+            followers[i][1] = self.return_1(divs[i].xpath(".//span[@class='link-gray pl-1']/text()").extract())
+            followers[i][2] = self.return_1(self.replace_space(divs[i].xpath(".//p[@class='wb-break-all text-gray text-small']/text()").extract()))
+            followers[i][3] = self.return_1(self.remove_null(divs[i].xpath(".//p[@class='text-gray text-small mb-0']/span/text()").extract()))
+            followers[i][4] = self.return_1(self.remove_null(divs[i].xpath(".//p[@class='text-gray text-small mb-0']/text()").extract()))
+        for follower in followers:
+            print "\nname:" + follower[0] + "\nuserName:" + follower[1] + "\nbio:" + follower[2] + "\nschool:" + follower[3] + "\nlocation:" + follower[4]
         return [Request(self.start_urls[4], meta={'cookiejar': response.meta['cookiejar']}, callback=self.scrapy_following)]
 
     # 对following的内容进行抓取
     def scrapy_following(self, response):
+        divs = response.xpath("//div[@class='d-table col-12 width-full py-4 border-bottom border-gray-light']")
+        # 多维数组的创建，避免了浅拷贝
+        followers = [([None] * 5) for i in range(len(divs))]
+        for i in range(len(followers)):
+            followers[i][0] = self.return_1(divs[i].xpath(".//span[@class='f4 link-gray-dark']/text()").extract())
+            followers[i][1] = self.return_1(divs[i].xpath(".//span[@class='link-gray pl-1']/text()").extract())
+            followers[i][2] = self.return_1(
+                self.replace_space(divs[i].xpath(".//p[@class='wb-break-all text-gray text-small']/text()").extract()))
+            followers[i][3] = self.return_1(
+                self.remove_null(divs[i].xpath(".//p[@class='text-gray text-small mb-0']/span/text()").extract()))
+            followers[i][4] = self.return_1(
+                self.remove_null(divs[i].xpath(".//p[@class='text-gray text-small mb-0']/text()").extract()))
+        for follower in followers:
+            print "\nname:" + follower[0] + "\nuserName:" + follower[1] + "\nbio:" + follower[2] + "\nschool:" + follower[3] + "\nlocation:" + follower[4]
+
+
         pass
 
     # 去掉list中所有元素中的换行符和空格
     @staticmethod
     def replace_space(list):
         for i in range(len(list)):
-            list[i] = list[i].replace("\n", "").replace(" ", "")
+            list[i] = list[i].replace("\n", "").replace("\r", "").replace(" ", "")
         return list
 
-    # 去掉list中所有空元素
+    # 去掉list中所有空元素,并且去掉list中所有元素中的换行符和空格
     @staticmethod
     def remove_null(list):
+        for i in range(len(list)):
+            list[i] = list[i].replace("\n", "").replace("\r", "").replace(" ", "")
         while "" in list:
             list.remove("")
         return list
+
+    @staticmethod
+    def return_1(arr):
+        if len(arr) != 0:
+            return arr[0]
+        else:
+            return ""
 
     # def after_login(self, response):
     #     for url in self.start_urls:
