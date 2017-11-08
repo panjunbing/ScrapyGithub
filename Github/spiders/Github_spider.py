@@ -3,6 +3,7 @@
 
 import scrapy
 from scrapy import Request, FormRequest
+from items import GithubItem
 
 
 class GithubSpider(scrapy.Spider):
@@ -11,6 +12,7 @@ class GithubSpider(scrapy.Spider):
     user = ""
     password = ""
     start_urls = [""] * 5
+    items = []
     custom_settings = {
         "DEFAULT_REQUEST_HEADERS": {
             # 'authority': 'https://github.com/',
@@ -78,101 +80,97 @@ class GithubSpider(scrapy.Spider):
 
     # 对overview的内容进行抓取
     def scrapy_overview(self, response):
+        item = GithubItem()
         a_text = self.replace_space(response.xpath("//span[@class='Counter']/text()").extract())
-        repositories, stars, followers, following = a_text[0], a_text[1], a_text[2], a_text[3]
-        print "repositories:" + repositories + "  stars:" + stars + "  followers:" + followers + "  following:" + following
+        item["repositories"], item["stars"], item["followers"], item["following"] = a_text[0], a_text[1], a_text[2], a_text[3]
+        item["user"] = self.user
+        item["type"] = "overview"
+        self.items.append(item)
         return [Request(self.start_urls[1], meta={'cookiejar': response.meta['cookiejar']}, callback=self.scrapy_repositories)]
 
     # 对repositories的内容进行抓取
     def scrapy_repositories(self, response):
-        repositories = self.replace_space(response.xpath("//a[@itemprop='name codeRepository']/text()").extract())
-        description = self.replace_space(response.xpath("//p[@itemprop='description']/text()").extract())
-        programmingLanguage = self.replace_space(response.xpath("//span[@itemprop='programmingLanguage']/text()").extract())
-        datetime = self.replace_space(response.xpath("//relative-time/@datetime").extract())
-        for i in range(len(repositories)):
-            print "\nrepositories:" + repositories[i] + "\ndescriptions:" + description[i] + "\nprogrammingLanguage:" + \
-                  programmingLanguage[i] + "\ndatetime:" + datetime[i]
+        divs = response.xpath("//li[@class='col-12 d-block width-full py-4 border-bottom public source']")
+        for i in range(len(divs)):
+            item = GithubItem()
+            item["repositories_name"] = self.return_1(divs[i].xpath(".//a[@itemprop='name codeRepository']/text()").extract())
+            item["repositories_description"] = self.return_1(divs[i].xpath(".//p[@itemprop='description']/text()").extract())
+            item["repositories_programmingLanguage"] = self.return_1(divs[i].xpath(".//span[@itemprop='programmingLanguage']/text()").extract())
+            item["repositories_datetime"] = self.return_1(divs[i].xpath(".//relative-time/@datetime").extract())
+            item["type"] = "repositories"
+            item["user"] = self.user
+            self.items.append(item)
         return [Request(self.start_urls[2], meta={'cookiejar': response.meta['cookiejar']}, callback=self.scrapy_stars)]
 
     # 对stars的内容进行抓取
     def scrapy_stars(self, response):
-        repositories = self.remove_null(response.xpath("//div[@class='d-inline-block mb-1']/h3/a/text()").extract())
-        actor = self.replace_space(response.xpath("//span[@class='text-normal']/text()").extract())
-        description = self.replace_space(response.xpath("//p[@itemprop='description']/text()").extract())
-        programmingLanguage = self.replace_space(response.xpath("//span[@itemprop='programmingLanguage']/text()").extract())
-        stars_forks = self.remove_null(response.xpath("//a[@class='muted-link mr-3']/text()").extract())
-        datetime = self.replace_space(response.xpath("//relative-time/@datetime").extract())
-
-        # 将stars_forks奇数赋值给stars,偶数赋值给forks
-        count = len(stars_forks) / 2
-        stars = [""] * count
-        forks = [""] * count
-        i, j, k = 0, 0, 1
-        while i < count:
-            stars[i] = stars_forks[j]
-            forks[i] = stars_forks[k]
-            i, j, k = i + 1, j + 2, k + 2
-
-        for i in range(len(repositories)):
-            print "\nrepositories:" + repositories[i] + "\nactor:" + actor[i] + "\ndescription:" + description[
-                i] + "\nprogrammingLanguage:" \
-                  + programmingLanguage[i], "\nstars:" + stars[i] + "\nforks:" + forks[i] + "\ndatetime:" + datetime[i]
+        divs = response.xpath("//div[@class='col-12 d-block width-full py-4 border-bottom']")
+        for i in range(len(divs)):
+            item = GithubItem()
+            item["star_name"] = self.return_1(self.remove_null(divs[i].xpath(".//div[@class='d-inline-block mb-1']/h3/a/text()").extract()))
+            item["star_actor"] = self.return_1(divs[i].xpath(".//span[@class='text-normal']/text()").extract())
+            item["star_description"] = self.return_1(divs[i].xpath(".//p[@itemprop='description']/text()").extract())
+            item["star_programmingLanguage"] = self.return_1(divs[i].xpath(".//span[@itemprop='programmingLanguage']/text()").extract())
+            item["star_datetime"] = self.return_1(divs[i].xpath(".//relative-time/@datetime").extract())
+            stars_forks = self.remove_null(response.xpath("//a[@class='muted-link mr-3']/text()").extract())
+            item["star_stars"], item["star_forks"] = stars_forks[0], stars_forks[1]
+            item["type"] = "stars"
+            item["user"] = self.user
+            self.items.append(item)
         return [Request(self.start_urls[3], meta={'cookiejar': response.meta['cookiejar']}, callback=self.scrapy_followers)]
 
     # 对followers的内容进行抓取
     def scrapy_followers(self, response):
         divs = response.xpath("//div[@class='d-table col-12 width-full py-4 border-bottom border-gray-light']")
-        # 多维数组的创建，避免了浅拷贝
-        followers = [([None]*5) for i in range(len(divs))]
-        for i in range(len(followers)):
-            followers[i][0] = self.return_1(divs[i].xpath(".//span[@class='f4 link-gray-dark']/text()").extract())
-            followers[i][1] = self.return_1(divs[i].xpath(".//span[@class='link-gray pl-1']/text()").extract())
-            followers[i][2] = self.return_1(self.replace_space(divs[i].xpath(".//p[@class='wb-break-all text-gray text-small']/text()").extract()))
-            followers[i][3] = self.return_1(self.remove_null(divs[i].xpath(".//p[@class='text-gray text-small mb-0']/span/text()").extract()))
-            followers[i][4] = self.return_1(self.remove_null(divs[i].xpath(".//p[@class='text-gray text-small mb-0']/text()").extract()))
-        for follower in followers:
-            print "\nname:" + follower[0] + "\nuserName:" + follower[1] + "\nbio:" + follower[2] + "\nschool:" + follower[3] + "\nlocation:" + follower[4]
+        for i in range(len(divs)):
+            item = GithubItem()
+            item["followers_name"] = self.return_1(divs[i].xpath(".//span[@class='f4 link-gray-dark']/text()").extract())
+            item["followers_userName"] = self.return_1(divs[i].xpath(".//span[@class='link-gray pl-1']/text()").extract())
+            item["followers_bio"] = self.return_1(divs[i].xpath(".//p[@class='wb-break-all text-gray text-small']/text()").extract())
+            item["followers_school"] = self.return_1(self.remove_null(divs[i].xpath(".//p[@class='text-gray text-small mb-0']/span/text()").extract()))
+            item["followers_loction"] = self.return_1(self.remove_null(divs[i].xpath(".//p[@class='text-gray text-small mb-0']/text()").extract()))
+            item["type"] = "followers"
+            item["user"] = self.user
+            self.items.append(item)
         return [Request(self.start_urls[4], meta={'cookiejar': response.meta['cookiejar']}, callback=self.scrapy_following)]
 
     # 对following的内容进行抓取
     def scrapy_following(self, response):
         divs = response.xpath("//div[@class='d-table col-12 width-full py-4 border-bottom border-gray-light']")
         # 多维数组的创建，避免了浅拷贝
-        followers = [([None] * 5) for i in range(len(divs))]
-        for i in range(len(followers)):
-            followers[i][0] = self.return_1(divs[i].xpath(".//span[@class='f4 link-gray-dark']/text()").extract())
-            followers[i][1] = self.return_1(divs[i].xpath(".//span[@class='link-gray pl-1']/text()").extract())
-            followers[i][2] = self.return_1(
-                self.replace_space(divs[i].xpath(".//p[@class='wb-break-all text-gray text-small']/text()").extract()))
-            followers[i][3] = self.return_1(
-                self.remove_null(divs[i].xpath(".//p[@class='text-gray text-small mb-0']/span/text()").extract()))
-            followers[i][4] = self.return_1(
-                self.remove_null(divs[i].xpath(".//p[@class='text-gray text-small mb-0']/text()").extract()))
-        for follower in followers:
-            print "\nname:" + follower[0] + "\nuserName:" + follower[1] + "\nbio:" + follower[2] + "\nschool:" + follower[3] + "\nlocation:" + follower[4]
-
-
-        pass
+        for i in range(len(divs)):
+            item = GithubItem()
+            item["following_name"] = self.return_1(divs[i].xpath(".//span[@class='f4 link-gray-dark']/text()").extract())
+            item["following_userName"] = self.return_1(divs[i].xpath(".//span[@class='link-gray pl-1']/text()").extract())
+            item["following_bio"] = self.return_1(divs[i].xpath(".//p[@class='wb-break-all text-gray text-small']/text()").extract())
+            item["following_school"] = self.return_1(self.remove_null(divs[i].xpath(".//p[@class='text-gray text-small mb-0']/span/text()").extract()))
+            item["following_loction"] = self.return_1(self.remove_null(divs[i].xpath(".//p[@class='text-gray text-small mb-0']/text()").extract()))
+            item["type"] = "following"
+            item["user"] = self.user
+            self.items.append(item)
+        return self.items
 
     # 去掉list中所有元素中的换行符和空格
     @staticmethod
-    def replace_space(list):
-        for i in range(len(list)):
-            list[i] = list[i].replace("\n", "").replace("\r", "").replace(" ", "")
-        return list
+    def replace_space(arr):
+        for i in range(len(arr)):
+            arr[i] = arr[i].replace("\n", "").replace("\r", "").replace(" ", "")
+        return arr
 
     # 去掉list中所有空元素,并且去掉list中所有元素中的换行符和空格
     @staticmethod
-    def remove_null(list):
-        for i in range(len(list)):
-            list[i] = list[i].replace("\n", "").replace("\r", "").replace(" ", "")
-        while "" in list:
-            list.remove("")
-        return list
+    def remove_null(arr):
+        for i in range(len(arr)):
+            arr[i] = arr[i].replace("\n", "").replace("\r", "").replace(" ", "")
+        while "" in arr:
+            arr.remove("")
+        return arr
 
+    # 返回arr第一个元素并去掉所有元素中的换行符和空格，如果第一个元素不存在则返回空
     @staticmethod
     def return_1(arr):
         if len(arr) != 0:
+            arr[0] = arr[0].replace("\n", "").replace("\r", "").replace(" ", "")
             return arr[0]
         else:
             return ""

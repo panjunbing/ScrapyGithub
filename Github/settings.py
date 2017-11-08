@@ -19,18 +19,18 @@ COOKIES_ENABLES = True
 
 
 #Mysql数据库的配置信息
-# MYSQL_HOST = '127.0.0.1'
-# MYSQL_NAME = 'owmax'
-# MYSQL_USER = 'root'
-# MYSQL_PASSWORD = '123456'
+MYSQL_HOST = 'localhost'
+MYSQL_NAME = 'github'
+MYSQL_USER = 'root'
+MYSQL_PASSWORD = '123456'
 #
-# MYSQL_PORT = 3306               #数据库端口，在dbhelper中使用
+MYSQL_PORT = 3306               #数据库端口，在dbhelper中使用
 
 
 ITEM_PIPELINES = {
-    # 'webCrawler_scrapy.pipelines.WebcrawlerScrapyPipeline': 300,#保存到mysql数据库
-    # 'webCrawler_scrapy.pipelines.JsonWithEncodingPipeline': 300,#保存到文件中
-    'Github.pipelines.GithubPipeline': 300
+    'Github.pipelines.MysqlGithubPipeline': 300,    # 保存到数据库中
+    'Github.pipelines.JsonGithubPipeline': 300,     # 保存到json文件中
+    'Github.pipelines.TxtGithubPipeline': 300       # 保存到txt文件中
 }
 
 
