@@ -1,4 +1,6 @@
-# ScrapyGithub
-基于Scrapy爬虫对Github网站的抓取  
-2017/10/19：Github模拟登录，并抓取用户的repositories,stars,followers,following数量；Zhihu模拟登录
-2017/11/06：Github：增加对 repositories页面进行抓取，对stars页面进行抓取，
+  ScrapyGithubv1.0
+  基于Scrapy爬虫对Github网站的抓取
+  模拟github和zhihu登录，并对github网页 https://github.com/user 中overview、repository、star、followers、following的tab页中的内容进行抓取，并将抓取内容分别保存到json、txt、mysql数据中。
+  使用说明： 1、创建github的数据库（使用utf8mb4的编码，否则无法插入emoji表情），运行github.sql;
+            2、创建user.txt文件，格式为： userName
+                                        password
