@@ -28,7 +28,7 @@ MYSQL_PORT = 3306               #数据库端口，在dbhelper中使用
 
 
 ITEM_PIPELINES = {
-    'Github.pipelines.MysqlGithubPipeline': 300,    # 保存到数据库中
+    # 'Github.pipelines.MysqlGithubPipeline': 300,    # 保存到数据库中
     'Github.pipelines.JsonGithubPipeline': 300,     # 保存到json文件中
     'Github.pipelines.TxtGithubPipeline': 300       # 保存到txt文件中
 }

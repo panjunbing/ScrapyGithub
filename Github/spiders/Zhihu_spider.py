@@ -23,7 +23,7 @@ class ZhihuSpider(scrapy.Spider):
             'referer': 'https://github.com/',
             'user-agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_4) AppleWebKit/537.36 (KHTML, like Gecko) '
                           'Chrome/48.0.2564.97 Safari/537.36',
-            'x-requested-with': 'XMLHttpRequest',
+            'x-requested-with': 'XMLHttpRequest'
         },
     }
 
